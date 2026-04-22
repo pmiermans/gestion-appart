@@ -763,8 +763,8 @@ window.openModalAddResa=function(preDate=''){
     <div class="modal-title">🛏️ Nouvelle réservation</div>
     <div class="field"><label>Nom du locataire</label><input id="m-name" placeholder="Prénom Nom"/></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <div class="field"><label>Arrivée</label><input id="m-start" type="date" value="${preDate}" oninput="syncEndDate(this.value)"/></div>
-      <div class="field"><label>Départ</label><input id="m-end" type="date" min="${preDate}"/></div>
+      <div class="field"><label>Arrivée</label><input id="m-start" type="date" value="${preDate}" onchange="syncEndDate(this.value)" onblur="syncEndDate(this.value)"/></div>
+      <div class="field"><label>Départ</label><input id="m-end" type="date" value="${preDate}" min="${preDate}"/></div>
     </div>
     <div class="field"><label>Montant (€)</label><input id="m-amount" type="number" placeholder="0" min="0"/></div>
     <div class="field">
@@ -781,13 +781,13 @@ window.openModalAddResa=function(preDate=''){
 };
 
 window.syncEndDate=function(startVal){
+  if(!startVal)return;
   const endInput=document.getElementById('m-end');
-  if(endInput){
-    endInput.min=startVal;
-    // Mettre à jour la date de fin seulement si elle est vide ou antérieure à l'arrivée
-    if(!endInput.value || endInput.value <= startVal){
-      endInput.value=startVal;
-    }
+  if(!endInput)return;
+  endInput.min=startVal;
+  // Toujours aligner la date de fin si elle est vide ou <= à l'arrivée
+  if(!endInput.value||endInput.value<=startVal){
+    endInput.value=startVal;
   }
 };
 
