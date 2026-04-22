@@ -500,7 +500,7 @@ function renderCats(){
         '<div style="font-size:1.4rem;">'+c.icon+'</div>'+
         '<div style="font-weight:600;">'+c.name+'</div>'+
       '</div>'+
-      '<button onclick="delCat(''+id+'')" style="background:var(--red-light);color:var(--red);border-radius:8px;padding:4px 10px;font-size:.78rem;font-weight:600;border:none;cursor:pointer;">✕</button>'+
+      '<button data-cid="'+id+'" onclick="delCatClick(this)" style="background:var(--red-light);color:var(--red);border-radius:8px;padding:4px 10px;font-size:.78rem;font-weight:600;border:none;cursor:pointer;">✕</button>'+
     '</div>';
   }).join('');
 }
