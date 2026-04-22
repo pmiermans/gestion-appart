@@ -560,6 +560,10 @@ window.switchTab=function(tab){
 };
 
 // ─── CALENDRIER ──────────────────────────────────────────────────────────────
+window.handleCalClick=function(el){
+  var iso=el.getAttribute('data-iso');
+  if(iso) openModalAddResa(iso);
+};
 window.prevMonth=function(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
 window.nextMonth=function(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
 
@@ -592,8 +596,9 @@ function renderCalendar(){
     else if(dateMap[iso]==='option') cls+=' option';
     else if(!isPast) cls+=' free';
     if(isPast&&iso!==today) cls+=' past';
-    var oc=isPast?"":'onclick="openModalAddResa("'+iso+'")"'+'';
-    cells.push('<td><div class="'+cls+'" '+oc+'>'+day+'</div></td>');
+    var isoData = ' data-iso="' + iso + '"';
+    var clickHandler = isPast ? '' : ' onclick="handleCalClick(this)"';
+    cells.push('<td><div class="' + cls + '"' + isoData + clickHandler + '>' + day + '</div></td>');
   }
   while(cells.length%7!==0) cells.push('<td></td>');
 
