@@ -158,23 +158,24 @@ input, select, textarea { font-family:'DM Sans',sans-serif; outline:none; }
   font-size:1rem; display:flex; align-items:center; justify-content:center;
 }
 .cal-month { font-size:1rem; font-weight:700; }
-.cal-wrapper {
-  width:316px; margin:0 auto;
+.cal-table {
+  width:100%; border-collapse:separate; border-spacing:4px;
+  table-layout:fixed;
 }
-.cal-grid {
-  display:grid; grid-template-columns:repeat(7,40px);
-  gap:4px;
-  width:316px;
-}
-.cal-day-label {
-  width:40px; text-align:center; font-size:.65rem; font-weight:700;
+.cal-table th {
+  text-align:center; font-size:.65rem; font-weight:700;
   color:var(--text3); padding:4px 0;
   text-transform:uppercase; letter-spacing:.5px;
+  width:14.28%;
 }
+.cal-table td {
+  text-align:center; padding:0; height:38px; width:14.28%;
+}
+.cal-day-label { display:none; }
 .cal-day {
-  width:40px; height:40px;
+  display:inline-flex; width:36px; height:36px;
   border-radius:8px;
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  align-items:center; justify-content:center;
   font-size:.82rem; font-weight:500; cursor:pointer;
   position:relative; transition:all .15s;
   border:1.5px solid transparent;
@@ -341,18 +342,7 @@ input, select, textarea { font-family:'DM Sans',sans-serif; outline:none; }
           <span class="cal-month serif" id="cal-month-label"></span>
           <button class="cal-nav-btn" onclick="nextMonth()">›</button>
         </div>
-        <div class="cal-wrapper">
-          <div class="cal-grid" id="cal-days-labels">
-            <div class="cal-day-label">Lu</div>
-            <div class="cal-day-label">Ma</div>
-            <div class="cal-day-label">Me</div>
-            <div class="cal-day-label">Je</div>
-            <div class="cal-day-label">Ve</div>
-            <div class="cal-day-label">Sa</div>
-            <div class="cal-day-label">Di</div>
-          </div>
-          <div class="cal-grid" id="cal-grid"></div>
-        </div>
+        <table class="cal-table" id="cal-grid"></table>
         <div class="cal-legend">
           <div class="cal-leg-item"><div class="cal-leg-dot" style="background:var(--cal-free)"></div>Libre</div>
           <div class="cal-leg-item"><div class="cal-leg-dot" style="background:var(--cal-booked)"></div>Réservé</div>
@@ -582,37 +572,39 @@ function renderCalendar(){
   });
 
   const grid=document.getElementById('cal-grid');
-  grid.innerHTML='';
-
   const firstDay=new Date(calYear,calMonth,1).getDay();
-  const offset=(firstDay===0?6:firstDay-1); // lundi=0
+  const offset=(firstDay===0?6:firstDay-1);
   const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
   const today=new Date().toISOString().slice(0,10);
 
-  // Cases vides
-  for(let i=0;i<offset;i++){
-    const d=document.createElement('div');
-    d.className='cal-day empty';
-    grid.appendChild(d);
-  }
+  // Construire la table
+  let html='<thead><tr>';
+  ['Lu','Ma','Me','Je','Ve','Sa','Di'].forEach(d=>{ html+=`<th>${d}</th>`; });
+  html+='</tr></thead><tbody>';
 
-  // Jours
+  let col=offset, row=[];
+  // Cases vides début
+  for(let i=0;i<offset;i++) row.push('<td></td>');
+
   for(let day=1;day<=daysInMonth;day++){
     const iso=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const d=document.createElement('div');
-    d.className='cal-day';
-    d.textContent=day;
-
     const isPast=iso<today;
-    if(iso===today) d.classList.add('today');
-    else if(dateMap[iso]==='booked') d.classList.add('booked');
-    else if(dateMap[iso]==='option') d.classList.add('option');
-    else if(!isPast) d.classList.add('free');
-    if(isPast&&iso!==today) d.classList.add('past');
-
-    d.onclick=()=>{ if(!isPast) openModalAddResa(iso); };
-    grid.appendChild(d);
+    let cls='cal-day';
+    if(iso===today) cls+=' today';
+    else if(dateMap[iso]==='booked') cls+=' booked';
+    else if(dateMap[iso]==='option') cls+=' option';
+    else if(!isPast) cls+=' free';
+    if(isPast&&iso!==today) cls+=' past';
+    const click=isPast?'':'onclick="openModalAddResa(''+iso+'')"';
+    row.push(`<td><div class="${cls}" ${click}>${day}</div></td>`);
+    col++;
+    if(col%7===0&&day<daysInMonth){ html+='<tr>'+row.join('')+'</tr>'; row=[]; }
   }
+  // Cases vides fin
+  while(row.length%7!==0) row.push('<td></td>');
+  html+='<tr>'+row.join('')+'</tr>';
+  html+='</tbody>';
+  grid.innerHTML=html;
 
   // Stats du mois
   const monthKey=`${calYear}-${String(calMonth+1).padStart(2,'0')}`;
