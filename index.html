@@ -164,22 +164,28 @@ input, select, textarea { font-family:'DM Sans',sans-serif; outline:none; }
 }
 .cal-table th {
   text-align:center; font-size:.65rem; font-weight:700;
-  color:var(--text3); padding:4px 0;
+  color:var(--text3); padding:6px 0;
   text-transform:uppercase; letter-spacing:.5px;
-  width:14.28%;
 }
 .cal-table td {
-  text-align:center; padding:0; height:38px; width:14.28%;
-}
-.cal-day-label { display:none; }
-.cal-day {
-  display:inline-flex; width:36px; height:36px;
+  text-align:center; padding:0;
+  height:40px; width:14.28%;
   border-radius:8px;
-  align-items:center; justify-content:center;
-  font-size:.82rem; font-weight:500; cursor:pointer;
-  position:relative; transition:all .15s;
+  font-size:.82rem; font-weight:500;
   border:1.5px solid transparent;
+  vertical-align:middle;
+  cursor:pointer;
+  transition:all .15s;
 }
+.cal-table td:hover:not(.empty):not(.past) { border-color:var(--accent); }
+.cal-table td.empty { cursor:default; background:transparent !important; }
+.cal-table td.past  { opacity:.35; cursor:default; }
+.cal-table td.today { background:var(--accent); color:#fff; font-weight:700; }
+.cal-table td.free  { background:var(--cal-free); color:var(--accent); }
+.cal-table td.booked{ background:var(--cal-booked); color:#7a3500; }
+.cal-table td.option{ background:var(--cal-option); color:var(--gold); }
+
+
 .cal-day:hover { border-color:var(--accent); }
 .cal-day.empty { cursor:default; }
 .cal-day.today { background:var(--accent); color:#fff; font-weight:700; }
@@ -337,13 +343,8 @@ input, select, textarea { font-family:'DM Sans',sans-serif; outline:none; }
     </div>
     <div class="content">
       <div class="card" style="padding:12px;">
-        <div class="cal-header">
-          <button class="cal-nav-btn" onclick="prevMonth()">‹</button>
-          <span class="cal-month serif" id="cal-month-label"></span>
-          <button class="cal-nav-btn" onclick="nextMonth()">›</button>
-        </div>
         <table class="cal-table" id="cal-grid"></table>
-        <div class="cal-legend">
+        <div class="cal-legend" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
           <div class="cal-leg-item"><div class="cal-leg-dot" style="background:var(--cal-free)"></div>Libre</div>
           <div class="cal-leg-item"><div class="cal-leg-dot" style="background:var(--cal-booked)"></div>Réservé</div>
           <div class="cal-leg-item"><div class="cal-leg-dot" style="background:var(--cal-option)"></div>Option</div>
@@ -563,60 +564,60 @@ window.prevMonth=function(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}ren
 window.nextMonth=function(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
 
 function renderCalendar(){
-  document.getElementById('cal-month-label').textContent=`${months[calMonth]} ${calYear}`;
+  document.getElementById('cal-month-label').textContent=months[calMonth]+' '+calYear;
 
   // Map dates → statut
-  const dateMap={};
-  Object.values(reservations).forEach(r=>{
-    dateRange(r.start,r.end).forEach(d=>{ dateMap[d]=r.status||'booked'; });
+  var dateMap={};
+  Object.values(reservations).forEach(function(r){
+    dateRange(r.start,r.end).forEach(function(d){ dateMap[d]=r.status||'booked'; });
   });
 
-  const grid=document.getElementById('cal-grid');
-  const firstDay=new Date(calYear,calMonth,1).getDay();
-  const offset=(firstDay===0?6:firstDay-1);
-  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
-  const today=new Date().toISOString().slice(0,10);
+  var grid=document.getElementById('cal-grid');
+  var firstDay=new Date(calYear,calMonth,1).getDay();
+  var offset=(firstDay===0?6:firstDay-1);
+  var daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  var today=new Date().toISOString().slice(0,10);
 
-  // Construire la table
-  let html='<thead><tr>';
-  ['Lu','Ma','Me','Je','Ve','Sa','Di'].forEach(d=>{ html+=`<th>${d}</th>`; });
-  html+='</tr></thead><tbody>';
-
-  let col=offset, row=[];
-  // Cases vides début
-  for(let i=0;i<offset;i++) row.push('<td></td>');
-
-  for(let day=1;day<=daysInMonth;day++){
-    const iso=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const isPast=iso<today;
-    let cls='cal-day';
+  // Construire tableau plat
+  var cells=[];
+  for(var e=0;e<offset;e++) cells.push('<td></td>');
+  for(var day=1;day<=daysInMonth;day++){
+    var mm=String(calMonth+1).padStart(2,'0');
+    var dd=String(day).padStart(2,'0');
+    var iso=calYear+'-'+mm+'-'+dd;
+    var isPast=(iso<today);
+    var cls='cal-day';
     if(iso===today) cls+=' today';
     else if(dateMap[iso]==='booked') cls+=' booked';
     else if(dateMap[iso]==='option') cls+=' option';
     else if(!isPast) cls+=' free';
     if(isPast&&iso!==today) cls+=' past';
-    const click=isPast?'':'onclick="openModalAddResa(''+iso+'')"';
-    row.push(`<td><div class="${cls}" ${click}>${day}</div></td>`);
-    col++;
-    if(col%7===0&&day<daysInMonth){ html+='<tr>'+row.join('')+'</tr>'; row=[]; }
+    var oc=isPast?'':'onclick="openModalAddResa(''+iso+'')"';
+    cells.push('<td><div class="'+cls+'" '+oc+'>'+day+'</div></td>');
   }
-  // Cases vides fin
-  while(row.length%7!==0) row.push('<td></td>');
-  html+='<tr>'+row.join('')+'</tr>';
+  while(cells.length%7!==0) cells.push('<td></td>');
+
+  var html='<thead><tr>';
+  ['Lu','Ma','Me','Je','Ve','Sa','Di'].forEach(function(d){ html+='<th>'+d+'</th>'; });
+  html+='</tr></thead><tbody>';
+  for(var i=0;i<cells.length;i+=7){
+    html+='<tr>'+cells.slice(i,i+7).join('')+'</tr>';
+  }
   html+='</tbody>';
   grid.innerHTML=html;
 
   // Stats du mois
-  const monthKey=`${calYear}-${String(calMonth+1).padStart(2,'0')}`;
-  let nights=0, rev=0;
-  Object.values(reservations).forEach(r=>{
+  var monthKey=calYear+'-'+String(calMonth+1).padStart(2,'0');
+  var dIM=daysInMonth;
+  var nights=0, rev=0;
+  Object.values(reservations).forEach(function(r){
     if(r.start&&r.start.startsWith(monthKey)){
       nights+=nightsBetween(r.start,r.end);
       if(r.status==='booked') rev+=Number(r.amount)||0;
     }
   });
   document.getElementById('stat-nights').textContent=nights||'0';
-  document.getElementById('stat-nights-sub').textContent=nights>0?`sur ${daysInMonth} jours`:'Aucune réservation';
+  document.getElementById('stat-nights-sub').textContent=nights>0?'sur '+dIM+' jours':'Aucune réservation';
   document.getElementById('stat-month-rev').textContent=fmtEur(rev);
   document.getElementById('stat-month-rev-sub').textContent=rev>0?'confirmées':'';
 }
