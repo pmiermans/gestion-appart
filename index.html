@@ -61,15 +61,15 @@ button{cursor:pointer;border:none;outline:none;}
 .cal-wrap{}
 .cal-table{border-collapse:separate;border-spacing:3px;width:100%;table-layout:fixed;}
 .cal-table th{text-align:center;font-size:.65rem;font-weight:700;color:var(--text3);padding:4px 2px;text-transform:uppercase;}
-.cal-table td{text-align:center;padding:2px;height:40px;}
-.cal-cell{width:100%;height:36px;max-width:44px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:500;cursor:pointer;border:1.5px solid transparent;transition:all .15s;}
+.cal-table td{text-align:center;padding:2px;height:42px;min-height:42px;}
+.cal-cell{width:100%;height:38px;max-width:44px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:500;cursor:pointer;border:1.5px solid transparent;transition:all .15s;}
 .cal-cell:hover{border-color:var(--accent);}
 .cal-cell.today{background:var(--accent);color:#fff;font-weight:700;}
 .cal-cell.free{background:var(--cal-free);color:var(--accent);}
 .cal-cell.booked{background:var(--cal-booked);color:#7a3500;}
 .cal-cell.option{background:var(--cal-option);color:var(--gold);}
 .cal-cell.past{opacity:.32;cursor:default;}
-.cal-cell.empty{cursor:default;}
+.cal-cell.empty{cursor:default;height:38px;}
 .cal-cell.empty:hover{border-color:transparent;}
 .cal-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
 .leg{display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--text2);}
@@ -139,6 +139,7 @@ button{cursor:pointer;border:none;outline:none;}
     <button class="nav-btn active" id="nav-cal" onclick="goTab('cal')"><span class="nav-icon">📅</span>Calendrier</button>
     <button class="nav-btn" id="nav-resa" onclick="goTab('resa')"><span class="nav-icon">🛏️</span>Réservations</button>
     <button class="nav-btn" id="nav-fin" onclick="goTab('fin')"><span class="nav-icon">💶</span>Finances</button>
+    <button class="nav-btn" id="nav-cats" onclick="goTab('cats')"><span class="nav-icon">📋</span>Postes</button>
   </nav>
 
   <!-- TAB CALENDRIER -->
@@ -208,6 +209,20 @@ button{cursor:pointer;border:none;outline:none;}
       <div class="card" style="padding:0 16px;" id="f-charges"></div>
     </div>
   </div>
+
+  <!-- TAB POSTES DE FRAIS -->
+  <div id="tab-cats" class="screen">
+    <div class="header"><h1>Postes de frais</h1><p>Catégories personnalisées</p></div>
+    <div class="content">
+      <div class="card" style="margin-bottom:14px;">
+        <div class="field" style="margin-bottom:10px;"><label>Nom du poste</label><input id="cat-name" placeholder="ex: Électricité, Eau, Conciergerie..."/></div>
+        <div class="field" style="margin-bottom:10px;"><label>Icône (emoji)</label><input id="cat-icon" placeholder="💡" maxlength="2" style="font-size:1.3rem;width:70px;"/></div>
+        <button class="btn btn-primary btn-full" onclick="addCat()">＋ Ajouter ce poste</button>
+      </div>
+      <div class="sec">Postes enregistrés</div>
+      <div class="card" style="padding:0 16px;" id="cats-list"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -227,6 +242,7 @@ var calY=new Date().getFullYear(), calM=new Date().getMonth();
 var finY=new Date().getFullYear();
 var resaFilter='all';
 var appName='Mon Appartement';
+var customCats={}; // postes de frais personnalisés
 var MONTHS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
@@ -263,6 +279,7 @@ function startApp(){
     launchApp();
     fbOnValue(fbRef(db,'reservations'),function(s){reservations=s.val()||{};renderAll();});
     fbOnValue(fbRef(db,'charges'),function(s){charges=s.val()||{};renderAll();});
+    fbOnValue(fbRef(db,'categories'),function(s){customCats=s.val()||{};renderCats();});
     toast('✅ Connecté !');
   };
   window._fbErr=function(m){toast('❌ Firebase : '+m,4000);};
@@ -296,7 +313,7 @@ function launchApp(){
 
 // ── TABS ──────────────────────────────────────────────────────────────────────
 function goTab(t){
-  ['cal','resa','fin'].forEach(function(x){
+  ['cal','resa','fin','cats'].forEach(function(x){
     var tab=$('tab-'+x), nav=$('nav-'+x);
     if(tab)tab.classList.toggle('active',x===t);
     if(nav)nav.classList.toggle('active',x===t);
@@ -304,6 +321,7 @@ function goTab(t){
   if(t==='cal')renderCal();
   if(t==='resa')renderResa();
   if(t==='fin')renderFin();
+  if(t==='cats')renderCats();
 }
 
 // ── CALENDRIER ────────────────────────────────────────────────────────────────
@@ -424,6 +442,8 @@ function renderFin(){
   }).join('');
   $('f-monthly').innerHTML=rows||'<div class="empty"><p>Aucune donnée pour '+finY+'</p></div>';
   var ico={menage:'🧹',assurance:'🛡️',taxes:'🏛️',reparation:'🔧',autre:'📋'};
+  // Ajouter les catégories personnalisées
+  Object.entries(customCats).forEach(function(e){ico['cat_'+e[0]]=e[1].icon;});
   var ci=Object.entries(charges).filter(function(e){return e[1].date&&e[1].date.startsWith(String(finY));})
     .sort(function(a,b){return b[1].date>a[1].date?1:-1;});
   if(!ci.length){$('f-charges').innerHTML='<div class="empty"><div class="empty-icon">💶</div><p>Aucune charge pour '+finY+'</p></div>';return;}
@@ -443,6 +463,64 @@ function renderFin(){
 }
 
 function renderAll(){renderCal();renderResa();renderFin();}
+
+// ── POSTES DE FRAIS ──────────────────────────────────────────────────────────
+function addCat(){
+  var name=$('cat-name').value.trim();
+  var icon=$('cat-icon').value.trim()||'📋';
+  if(!name){toast('⚠️ Entrez un nom de poste');return;}
+  var id=uid();
+  customCats[id]={name:name,icon:icon};
+  if(isDemo){renderCats();}
+  else if(db){fbUpdate(fbRef(db,'categories/'+id),{name:name,icon:icon});}
+  $('cat-name').value='';$('cat-icon').value='';
+  toast('✅ Poste ajouté !');
+  renderCats();
+}
+
+function delCat(id){
+  if(!confirm('Supprimer ce poste ?'))return;
+  delete customCats[id];
+  if(!isDemo&&db){fbRemove(fbRef(db,'categories/'+id));}
+  renderCats();
+  toast('🗑️ Poste supprimé');
+}
+
+function renderCats(){
+  var el=$('cats-list');if(!el)return;
+  var items=Object.entries(customCats);
+  if(!items.length){
+    el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><p>Aucun poste enregistré</p></div>';
+    return;
+  }
+  el.innerHTML=items.map(function(e){
+    var id=e[0],c=e[1];
+    return '<div class="fin-row">'+
+      '<div style="display:flex;align-items:center;gap:10px;">'+
+        '<div style="font-size:1.4rem;">'+c.icon+'</div>'+
+        '<div style="font-weight:600;">'+c.name+'</div>'+
+      '</div>'+
+      '<button onclick="delCat(''+id+'')" style="background:var(--red-light);color:var(--red);border-radius:8px;padding:4px 10px;font-size:.78rem;font-weight:600;border:none;cursor:pointer;">✕</button>'+
+    '</div>';
+  }).join('');
+}
+
+function getCatOptions(){
+  // Catégories de base + personnalisées
+  var base=[
+    {v:'menage',l:'🧹 Ménage'},
+    {v:'assurance',l:'🛡️ Assurance'},
+    {v:'taxes',l:'🏛️ Taxes & impôts'},
+    {v:'reparation',l:'🔧 Réparation'},
+    {v:'autre',l:'📋 Autre'}
+  ];
+  var custom=Object.entries(customCats).map(function(e){
+    return {v:'cat_'+e[0],l:e[1].icon+' '+e[1].name};
+  });
+  return base.concat(custom).map(function(o){
+    return '<option value="'+o.v+'">'+o.l+'</option>';
+  }).join('');
+}
 
 // ── MODAL ─────────────────────────────────────────────────────────────────────
 function openModal(html){$('modal-body').innerHTML=html;$('overlay').classList.add('open');}
@@ -529,13 +607,7 @@ function openAddCharge(){
     '<div class="field"><label>Description</label><input id="cl" placeholder="Ménage, assurance..."/></div>'+
     '<div class="field"><label>Montant (€)</label><input id="ca" type="number" placeholder="0" min="0"/></div>'+
     '<div class="field"><label>Date</label><input id="cd" type="date" value="'+today+'"/></div>'+
-    '<div class="field"><label>Catégorie</label><select id="cc">'+
-      '<option value="menage">🧹 Ménage</option>'+
-      '<option value="assurance">🛡️ Assurance</option>'+
-      '<option value="taxes">🏛️ Taxes & impôts</option>'+
-      '<option value="reparation">🔧 Réparation</option>'+
-      '<option value="autre">📋 Autre</option>'+
-    '</select></div>'+
+    '<div class="field"><label>Catégorie</label><select id="cc">'+getCatOptions()+'</select></div>'+
     '<button class="btn btn-primary btn-full" onclick="saveCharge()">💾 Enregistrer</button>'+
     '<button class="btn btn-secondary btn-full" style="margin-top:8px;" onclick="closeModal()">Annuler</button>'
   );
