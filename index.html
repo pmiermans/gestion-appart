@@ -242,4 +242,219 @@ var MONTHS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','
 function $(id){return document.getElementById(id);}
 function pad(n){return String(n).padStart(2,'0');}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
-function eur(n){return new Intl.NumberFormat('fr-BE',{style:'currency',currency:'EUR',maximumFractionDigi
+function eur(n){return new Intl.NumberFormat('fr-BE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n||0);}
+function fmtD(iso){if(!iso)return'—';var p=iso.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+function nuits(a,b){if(!a||!b)return 0;return Math.max(0,Math.round((new Date(b)-new Date(a))/86400000));}
+function dRange(s,e){var r=[],c=new Date(s),l=new Date(e);while(c<l){r.push(c.toISOString().slice(0,10));c.setDate(c.getDate()+1);}return r;}
+function toast(msg,dur){
+  var t=$('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},dur||2500);
+}
+
+// ── SETUP ─────────────────────────────────────────────────────────────────────
+function startApp(){
+  appName=$('s-name').value.trim()||'Mon Appartement';
+  var s=document.createElement('script');
+  s.type='module';
+  s.textContent=
+    'import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";'+
+    'import{getDatabase,ref,onValue,update,remove}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";'+
+    'import{getAuth,signInAnonymously}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";'+
+    'try{'+
+      'var app=initializeApp('+JSON.stringify(FB)+');'+
+      'window._db=getDatabase(app);'+
+      'window._ref=ref;window._onValue=onValue;window._update=update;window._remove=remove;'+
+      'var auth=getAuth(app);'+
+      'signInAnonymously(auth).then(function(){window._fbReady();}).catch(function(e){window._fbErr(e.message);});'+
+    '}catch(e){window._fbErr(e.message);}';
+
+  window._fbReady=function(){
+    db=window._db; fbRef=window._ref; fbOnValue=window._onValue;
+    fbUpdate=window._update; fbRemove=window._remove;
+    launchApp();
+    fbOnValue(fbRef(db,'reservations'),function(s){reservations=s.val()||{};renderAll();});
+    fbOnValue(fbRef(db,'charges'),function(s){charges=s.val()||{};renderAll();});
+    fbOnValue(fbRef(db,'categories'),function(s){customCats=s.val()||{};renderCats();});
+    toast('✅ Connecté !');
+  };
+
+  window._fbErr=function(m){toast('❌ Firebase : '+m,4000);};
+  document.head.appendChild(s);
+}
+
+function startDemo(){
+  isDemo=true;
+  appName=$('s-name').value.trim()||'Mon Appartement';
+  var y=calY, m=pad(calM+1);
+  reservations={
+    r1:{name:'Dupont Marie',start:y+'-'+m+'-03',end:y+'-'+m+'-07',amount:480,status:'booked',notes:'Arrivée 16h'},
+    r2:{name:'Martin Luc',start:y+'-'+m+'-12',end:y+'-'+m+'-15',amount:360,status:'booked',notes:''},
+    r3:{name:'Option Lejeune',start:y+'-'+m+'-20',end:y+'-'+m+'-24',amount:320,status:'option',notes:'En attente'}
+  };
+  charges={
+    c1:{label:'Ménage',amount:80,date:y+'-'+m+'-07',cat:'menage'},
+    c2:{label:'Assurance annuelle',amount:450,date:y+'-01-15',cat:'assurance'},
+    c3:{label:'Taxe de séjour',amount:36,date:y+'-'+m+'-07',cat:'taxes'}
+  };
+  launchApp();
+  renderAll();
+}
+
+function launchApp(){
+  $('s-setup').classList.remove('active');
+  $('app').style.display='block';
+  $('app-title').textContent=appName;
+  goTab('cal');
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function goTab(t){
+  ['cal','resa','fin','cats'].forEach(function(x){
+    var tab=$('tab-'+x), nav=$('nav-'+x);
+    if(tab)tab.classList.toggle('active',x===t);
+    if(nav)nav.classList.toggle('active',x===t);
+  });
+  if(t==='cal')renderCal();
+  if(t==='resa')renderResa();
+  if(t==='fin')renderFin();
+  if(t==='cats')renderCats();
+}
+
+// ── CALENDRIER ────────────────────────────────────────────────────────────────
+function calPrev(){calM--;if(calM<0){calM=11;calY--;}renderCal();}
+function calNext(){calM++;if(calM>11){calM=0;calY++;}renderCal();}
+function renderCal(){
+  $('cal-lbl').textContent=MONTHS[calM]+' '+calY;
+  var dm={};
+  Object.values(reservations).forEach(function(r){
+    if(r.start&&r.end)dRange(r.start,r.end).forEach(function(d){dm[d]=r.status||'booked';});
+  });
+  var today=new Date().toISOString().slice(0,10);
+  var fd=new Date(calY,calM,1).getDay();
+  var off=fd===0?6:fd-1;
+  var dim=new Date(calY,calM+1,0).getDate();
+  var cells=[];
+  for(var e=0;e<off;e++)cells.push('<td><div class="cal-cell empty"></div></td>');
+  for(var d=1;d<=dim;d++){
+    var iso=calY+'-'+pad(calM+1)+'-'+pad(d);
+    var past=iso<today;
+    var cls='cal-cell';
+    if(iso===today)cls+=' today';
+    else if(dm[iso]==='booked')cls+=' booked';
+    else if(dm[iso]==='option')cls+=' option';
+    else if(!past)cls+=' free';
+    if(past&&iso!==today)cls+=' past';
+    var click=past?'':' data-iso="'+iso+'" onclick="calClick(this)"';
+    cells.push('<td><div class="'+cls+'"'+click+'>'+d+'</div></td>');
+  }
+  while(cells.length%7!==0)cells.push('<td><div class="cal-cell empty"></div></td>');
+  var html='<thead><tr>';
+  ['Lu','Ma','Me','Je','Ve','Sa','Di'].forEach(function(j){html+='<th>'+j+'</th>';});
+  html+='</tr></thead><tbody>';
+  for(var i=0;i<cells.length;i+=7)html+='<tr>'+cells.slice(i,i+7).join('')+'</tr>';
+  html+='</tbody>';
+  $('cal-tbl').innerHTML=html;
+  var mk=calY+'-'+pad(calM+1);
+  var n=0,r=0;
+  Object.values(reservations).forEach(function(rs){
+    if(rs.start&&rs.start.startsWith(mk)){n+=nuits(rs.start,rs.end);if(rs.status==='booked')r+=Number(rs.amount)||0;}
+  });
+  $('sn').textContent=n||'0';
+  $('sn2').textContent=n>0?'sur '+dim+' jours':'Aucune réservation';
+  $('sr').textContent=eur(r);
+  $('sr2').textContent=r>0?'confirmées':'';
+}
+function calClick(el){var iso=el.getAttribute('data-iso');if(iso)openAddResa(iso);}
+
+// ── RÉSERVATIONS ──────────────────────────────────────────────────────────────
+function setFilter(f){
+  resaFilter=f;
+  ['all','upcoming','past'].forEach(function(x){
+    var b=$('f-'+x);if(b)b.classList.toggle('active',x===f);
+  });
+  renderResa();
+}
+function renderResa(){
+  var today=new Date().toISOString().slice(0,10);
+  var items=Object.entries(reservations).map(function(e){return Object.assign({id:e[0]},e[1]);});
+  items.sort(function(a,b){return a.start<b.start?1:-1;});
+  if(resaFilter==='upcoming')items=items.filter(function(r){return r.end>=today;});
+  if(resaFilter==='past')items=items.filter(function(r){return r.end<today;});
+  var el=$('resa-list');
+  if(!items.length){el.innerHTML='<div class="empty"><div class="empty-icon">🛏️</div><p>Aucune réservation</p></div>';return;}
+  el.innerHTML=items.map(function(r,i){
+    var bc=r.status==='option'?'badge-gold':'badge-green';
+    var bt=r.status==='option'?'⏳ Option':'✅ Confirmé';
+    var ic=r.status==='option'?'var(--gold-light)':'var(--accent-light)';
+    var em=r.status==='option'?'⏳':'🛏️';
+    return '<div class="list-item" onclick="viewResa(\''+r.id+'\')" style="animation:fadeUp .3s '+(i*.05)+'s ease both;">'+
+      '<div class="list-icon" style="background:'+ic+'">'+em+'</div>'+
+      '<div class="list-info">'+
+        '<div class="list-name">'+(r.name||'Sans nom')+'</div>'+
+        '<div class="list-sub">'+fmtD(r.start)+' → '+fmtD(r.end)+' · '+nuits(r.start,r.end)+' nuit(s)</div>'+
+        '<div style="margin-top:4px;"><span class="badge '+bc+'">'+bt+'</span></div>'+
+      '</div>'+
+      '<div style="font-weight:700;color:var(--orange);font-size:.95rem;white-space:nowrap;">'+eur(r.amount)+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+// ── FINANCES ─────────────────────────────────────────────────────────────────
+function finPrev(){finY--;renderFin();}
+function finNext(){finY++;renderFin();}
+function renderFin(){
+  $('fin-yr').textContent=finY;
+  $('fin-period').textContent='Bilan '+finY;
+  var rm=new Array(12).fill(0), cm=new Array(12).fill(0);
+  Object.values(reservations).forEach(function(r){
+    if(r.start&&r.start.startsWith(String(finY))&&r.status==='booked'){
+      var m=parseInt(r.start.split('-')[1])-1;rm[m]+=Number(r.amount)||0;
+    }
+  });
+  Object.values(charges).forEach(function(c){
+    if(c.date&&c.date.startsWith(String(finY))){
+      var m=parseInt(c.date.split('-')[1])-1;cm[m]+=Number(c.amount)||0;
+    }
+  });
+  var tr=rm.reduce(function(a,b){return a+b;},0);
+  var tc=cm.reduce(function(a,b){return a+b;},0);
+  var net=tr-tc;
+  $('f-rev').textContent=eur(tr);
+  $('f-ch').textContent=eur(tc);
+  $('f-net').textContent=eur(net);
+  $('f-net').style.color=net>=0?'var(--accent)':'var(--red)';
+  $('f-net-sub').textContent=net>=0?'✅ Bénéficiaire':'⚠️ Déficitaire';
+  var rows=MONTHS.map(function(mn,i){
+    if(rm[i]===0&&cm[i]===0)return'';
+    var n=rm[i]-cm[i];
+    return '<div class="fin-row"><div><div style="font-weight:600;font-size:.88rem;">'+mn+'</div>'+
+      '<div style="font-size:.72rem;color:var(--text3);">Rev: '+eur(rm[i])+' · Ch: '+eur(cm[i])+'</div></div>'+
+      '<div style="font-weight:700;color:'+(n>=0?'var(--accent)':'var(--red)')+';">'+eur(n)+'</div></div>';
+  }).join('');
+  $('f-monthly').innerHTML=rows||'<div class="empty"><p>Aucune donnée pour '+finY+'</p></div>';
+  var ico={menage:'🧹',assurance:'🛡️',taxes:'🏛️',reparation:'🔧',autre:'📋'};
+  Object.entries(customCats).forEach(function(e){ico['cat_'+e[0]]=e[1].icon;});
+  var ci=Object.entries(charges).filter(function(e){return e[1].date&&e[1].date.startsWith(String(finY));})
+    .sort(function(a,b){return b[1].date>a[1].date?1:-1;});
+  if(!ci.length){$('f-charges').innerHTML='<div class="empty"><div class="empty-icon">💶</div><p>Aucune charge pour '+finY+'</p></div>';return;}
+  $('f-charges').innerHTML=ci.map(function(e){
+    var id=e[0],c=e[1];
+    return '<div class="fin-row">'+
+      '<div style="display:flex;align-items:center;gap:10px;">'+
+        '<div style="font-size:1.3rem;">'+(ico[c.cat]||'📋')+'</div>'+
+        '<div><div style="font-weight:600;font-size:.88rem;">'+c.label+'</div>'+
+        '<div style="font-size:.72rem;color:var(--text3);">'+fmtD(c.date)+'</div></div>'+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:8px;">'+
+        '<div style="font-weight:700;color:var(--gold);">-'+eur(c.amount)+'</div>'+
+        '<button onclick="delCharge(\''+id+'\')" style="background:var(--red-light);color:var(--red);border-radius:8px;padding:4px 8px;font-size:.72rem;font-weight:600;border:none;cursor:pointer;">✕</button>'+
+      '</div></div>';
+  }).join('');
+}
+function renderAll(){renderCal();renderResa();renderFin();}
+
+// ── POSTES DE FRAIS ──────────────────────────────────────────────────────────
+function addCat(){
+  var name=$('cat-name').value.trim();
+  var icon=$('cat-icon').value.trim()||'📋';
+  if(!name){toast
