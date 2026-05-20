@@ -54,7 +54,6 @@ button{cursor:pointer;border:none;outline:none;}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);background:#fff;}
 .field textarea{resize:vertical;min-height:70px;}
 .sec{font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;margin-top:20px;}
-/* Calendar */
 .cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
 .cal-nav{width:36px;height:36px;border-radius:10px;background:var(--surface2);color:var(--text);font-size:1.1rem;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;}
 .cal-month-lbl{font-size:1.05rem;font-weight:700;}
@@ -74,7 +73,6 @@ button{cursor:pointer;border:none;outline:none;}
 .cal-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
 .leg{display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--text2);}
 .leg-dot{width:12px;height:12px;border-radius:3px;}
-/* List */
 .list-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer;}
 .list-item:last-child{border-bottom:none;}
 .list-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;}
@@ -84,23 +82,18 @@ button{cursor:pointer;border:none;outline:none;}
 .badge{display:inline-flex;padding:3px 10px;border-radius:99px;font-size:.72rem;font-weight:600;}
 .badge-green{background:var(--accent-light);color:var(--accent);}
 .badge-gold{background:var(--gold-light);color:var(--gold);}
-/* Finance */
 .fin-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border);}
 .fin-row:last-child{border-bottom:none;}
-/* Filters */
 .filters{display:flex;gap:8px;margin-bottom:14px;}
 .filter{flex:1;padding:9px;border-radius:10px;font-size:.82rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text2);transition:all .2s;}
 .filter.active{background:var(--accent);color:#fff;border-color:var(--accent);}
-/* Modal */
 #overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:flex-end;}
 #overlay.open{display:flex;animation:fadeIn .2s ease;}
 .modal{background:var(--surface);border-radius:24px 24px 0 0;padding:20px 20px max(20px,env(safe-area-inset-bottom));width:100%;max-height:90vh;overflow-y:auto;animation:slideUp .3s ease;}
 .modal-handle{width:36px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 16px;}
 .modal-title{font-size:1.1rem;font-weight:700;margin-bottom:16px;}
-/* Toast */
 #toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:#1a1917;color:#fff;border-radius:10px;padding:10px 18px;font-size:.82rem;font-weight:500;z-index:500;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-/* Setup */
 #s-setup{align-items:center;justify-content:center;padding:30px 20px;}
 .setup-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px 24px;width:100%;max-width:400px;box-shadow:0 8px 40px rgba(0,0,0,.1);}
 .empty{text-align:center;padding:40px 20px;color:var(--text3);}
@@ -242,394 +235,11 @@ var calY=new Date().getFullYear(), calM=new Date().getMonth();
 var finY=new Date().getFullYear();
 var resaFilter='all';
 var appName='Mon Appartement';
-var customCats={}; // postes de frais personnalisés
+var customCats={};
 var MONTHS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 function $(id){return document.getElementById(id);}
 function pad(n){return String(n).padStart(2,'0');}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
-function eur(n){return new Intl.NumberFormat('fr-BE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n||0);}
-function fmtD(iso){if(!iso)return'—';var p=iso.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
-function nuits(a,b){if(!a||!b)return 0;return Math.max(0,Math.round((new Date(b)-new Date(a))/86400000));}
-function dRange(s,e){var r=[],c=new Date(s),l=new Date(e);while(c<l){r.push(c.toISOString().slice(0,10));c.setDate(c.getDate()+1);}return r;}
-
-function toast(msg,dur){
-  var t=$('toast');t.textContent=msg;t.classList.add('show');
-  setTimeout(function(){t.classList.remove('show');},dur||2500);
-}
-
-// ── SETUP ─────────────────────────────────────────────────────────────────────
-function startApp(){
-  appName=$('s-name').value.trim()||'Mon Appartement';
-  var s=document.createElement('script');
-  s.type='module';
-  s.textContent=
-    'import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";'+
-    'import{getDatabase,ref,onValue,update,remove}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";'+
-    'try{'+
-      'var app=initializeApp('+JSON.stringify(FB)+');'+
-      'window._db=getDatabase(app);'+
-      'window._ref=ref;window._onValue=onValue;window._update=update;window._remove=remove;'+
-      'window._fbReady();'+
-    '}catch(e){window._fbErr(e.message);}';
-  window._fbReady=function(){
-    db=window._db; fbRef=window._ref; fbOnValue=window._onValue;
-    fbUpdate=window._update; fbRemove=window._remove;
-    launchApp();
-    fbOnValue(fbRef(db,'reservations'),function(s){reservations=s.val()||{};renderAll();});
-    fbOnValue(fbRef(db,'charges'),function(s){charges=s.val()||{};renderAll();});
-    fbOnValue(fbRef(db,'categories'),function(s){customCats=s.val()||{};renderCats();});
-    toast('✅ Connecté !');
-  };
-  window._fbErr=function(m){toast('❌ Firebase : '+m,4000);};
-  document.head.appendChild(s);
-}
-
-function startDemo(){
-  isDemo=true;
-  appName=$('s-name').value.trim()||'Mon Appartement';
-  var y=calY, m=pad(calM+1);
-  reservations={
-    r1:{name:'Dupont Marie',start:y+'-'+m+'-03',end:y+'-'+m+'-07',amount:480,status:'booked',notes:'Arrivée 16h'},
-    r2:{name:'Martin Luc',start:y+'-'+m+'-12',end:y+'-'+m+'-15',amount:360,status:'booked',notes:''},
-    r3:{name:'Option Lejeune',start:y+'-'+m+'-20',end:y+'-'+m+'-24',amount:320,status:'option',notes:'En attente'}
-  };
-  charges={
-    c1:{label:'Ménage',amount:80,date:y+'-'+m+'-07',cat:'menage'},
-    c2:{label:'Assurance annuelle',amount:450,date:y+'-01-15',cat:'assurance'},
-    c3:{label:'Taxe de séjour',amount:36,date:y+'-'+m+'-07',cat:'taxes'}
-  };
-  launchApp();
-  renderAll();
-}
-
-function launchApp(){
-  $('s-setup').classList.remove('active');
-  $('app').style.display='block';
-  $('app-title').textContent=appName;
-  goTab('cal');
-}
-
-// ── TABS ──────────────────────────────────────────────────────────────────────
-function goTab(t){
-  ['cal','resa','fin','cats'].forEach(function(x){
-    var tab=$('tab-'+x), nav=$('nav-'+x);
-    if(tab)tab.classList.toggle('active',x===t);
-    if(nav)nav.classList.toggle('active',x===t);
-  });
-  if(t==='cal')renderCal();
-  if(t==='resa')renderResa();
-  if(t==='fin')renderFin();
-  if(t==='cats')renderCats();
-}
-
-// ── CALENDRIER ────────────────────────────────────────────────────────────────
-function calPrev(){calM--;if(calM<0){calM=11;calY--;}renderCal();}
-function calNext(){calM++;if(calM>11){calM=0;calY++;}renderCal();}
-
-function renderCal(){
-  $('cal-lbl').textContent=MONTHS[calM]+' '+calY;
-  var dm={};
-  Object.values(reservations).forEach(function(r){
-    if(r.start&&r.end)dRange(r.start,r.end).forEach(function(d){dm[d]=r.status||'booked';});
-  });
-  var today=new Date().toISOString().slice(0,10);
-  var fd=new Date(calY,calM,1).getDay();
-  var off=fd===0?6:fd-1;
-  var dim=new Date(calY,calM+1,0).getDate();
-  var cells=[];
-  for(var e=0;e<off;e++)cells.push('<td><div class="cal-cell empty"></div></td>');
-  for(var d=1;d<=dim;d++){
-    var iso=calY+'-'+pad(calM+1)+'-'+pad(d);
-    var past=iso<today;
-    var cls='cal-cell';
-    if(iso===today)cls+=' today';
-    else if(dm[iso]==='booked')cls+=' booked';
-    else if(dm[iso]==='option')cls+=' option';
-    else if(!past)cls+=' free';
-    if(past&&iso!==today)cls+=' past';
-    var click=past?'':' data-iso="'+iso+'" onclick="calClick(this)"';
-    cells.push('<td><div class="'+cls+'"'+click+'>'+d+'</div></td>');
-  }
-  while(cells.length%7!==0)cells.push('<td><div class="cal-cell empty"></div></td>');
-  var html='<thead><tr>';
-  ['Lu','Ma','Me','Je','Ve','Sa','Di'].forEach(function(j){html+='<th>'+j+'</th>';});
-  html+='</tr></thead><tbody>';
-  for(var i=0;i<cells.length;i+=7)html+='<tr>'+cells.slice(i,i+7).join('')+'</tr>';
-  html+='</tbody>';
-  $('cal-tbl').innerHTML=html;
-  // Stats
-  var mk=calY+'-'+pad(calM+1);
-  var n=0,r=0;
-  Object.values(reservations).forEach(function(rs){
-    if(rs.start&&rs.start.startsWith(mk)){n+=nuits(rs.start,rs.end);if(rs.status==='booked')r+=Number(rs.amount)||0;}
-  });
-  $('sn').textContent=n||'0';
-  $('sn2').textContent=n>0?'sur '+dim+' jours':'Aucune réservation';
-  $('sr').textContent=eur(r);
-  $('sr2').textContent=r>0?'confirmées':'';
-}
-
-function calClick(el){var iso=el.getAttribute('data-iso');if(iso)openAddResa(iso);}
-
-// ── RÉSERVATIONS ──────────────────────────────────────────────────────────────
-function setFilter(f){
-  resaFilter=f;
-  ['all','upcoming','past'].forEach(function(x){
-    var b=$('f-'+x);if(b)b.classList.toggle('active',x===f);
-  });
-  renderResa();
-}
-
-function renderResa(){
-  var today=new Date().toISOString().slice(0,10);
-  var items=Object.entries(reservations).map(function(e){return Object.assign({id:e[0]},e[1]);});
-  items.sort(function(a,b){return a.start<b.start?1:-1;});
-  if(resaFilter==='upcoming')items=items.filter(function(r){return r.end>=today;});
-  if(resaFilter==='past')items=items.filter(function(r){return r.end<today;});
-  var el=$('resa-list');
-  if(!items.length){el.innerHTML='<div class="empty"><div class="empty-icon">🛏️</div><p>Aucune réservation</p></div>';return;}
-  el.innerHTML=items.map(function(r,i){
-    var bc=r.status==='option'?'badge-gold':'badge-green';
-    var bt=r.status==='option'?'⏳ Option':'✅ Confirmé';
-    var ic=r.status==='option'?'var(--gold-light)':'var(--accent-light)';
-    var em=r.status==='option'?'⏳':'🛏️';
-    return '<div class="list-item" onclick="viewResa(\''+r.id+'\')" style="animation:fadeUp .3s '+(i*.05)+'s ease both;">'+
-      '<div class="list-icon" style="background:'+ic+'">'+em+'</div>'+
-      '<div class="list-info">'+
-        '<div class="list-name">'+(r.name||'Sans nom')+'</div>'+
-        '<div class="list-sub">'+fmtD(r.start)+' → '+fmtD(r.end)+' · '+nuits(r.start,r.end)+' nuit(s)</div>'+
-        '<div style="margin-top:4px;"><span class="badge '+bc+'">'+bt+'</span></div>'+
-      '</div>'+
-      '<div style="font-weight:700;color:var(--orange);font-size:.95rem;white-space:nowrap;">'+eur(r.amount)+'</div>'+
-    '</div>';
-  }).join('');
-}
-
-// ── FINANCES ─────────────────────────────────────────────────────────────────
-function finPrev(){finY--;renderFin();}
-function finNext(){finY++;renderFin();}
-
-function renderFin(){
-  $('fin-yr').textContent=finY;
-  $('fin-period').textContent='Bilan '+finY;
-  var rm=new Array(12).fill(0), cm=new Array(12).fill(0);
-  Object.values(reservations).forEach(function(r){
-    if(r.start&&r.start.startsWith(String(finY))&&r.status==='booked'){
-      var m=parseInt(r.start.split('-')[1])-1;rm[m]+=Number(r.amount)||0;
-    }
-  });
-  Object.values(charges).forEach(function(c){
-    if(c.date&&c.date.startsWith(String(finY))){
-      var m=parseInt(c.date.split('-')[1])-1;cm[m]+=Number(c.amount)||0;
-    }
-  });
-  var tr=rm.reduce(function(a,b){return a+b;},0);
-  var tc=cm.reduce(function(a,b){return a+b;},0);
-  var net=tr-tc;
-  $('f-rev').textContent=eur(tr);
-  $('f-ch').textContent=eur(tc);
-  $('f-net').textContent=eur(net);
-  $('f-net').style.color=net>=0?'var(--accent)':'var(--red)';
-  $('f-net-sub').textContent=net>=0?'✅ Bénéficiaire':'⚠️ Déficitaire';
-  var rows=MONTHS.map(function(mn,i){
-    if(rm[i]===0&&cm[i]===0)return'';
-    var n=rm[i]-cm[i];
-    return '<div class="fin-row"><div><div style="font-weight:600;font-size:.88rem;">'+mn+'</div>'+
-      '<div style="font-size:.72rem;color:var(--text3);">Rev: '+eur(rm[i])+' · Ch: '+eur(cm[i])+'</div></div>'+
-      '<div style="font-weight:700;color:'+(n>=0?'var(--accent)':'var(--red)')+';">'+eur(n)+'</div></div>';
-  }).join('');
-  $('f-monthly').innerHTML=rows||'<div class="empty"><p>Aucune donnée pour '+finY+'</p></div>';
-  var ico={menage:'🧹',assurance:'🛡️',taxes:'🏛️',reparation:'🔧',autre:'📋'};
-  // Ajouter les catégories personnalisées
-  Object.entries(customCats).forEach(function(e){ico['cat_'+e[0]]=e[1].icon;});
-  var ci=Object.entries(charges).filter(function(e){return e[1].date&&e[1].date.startsWith(String(finY));})
-    .sort(function(a,b){return b[1].date>a[1].date?1:-1;});
-  if(!ci.length){$('f-charges').innerHTML='<div class="empty"><div class="empty-icon">💶</div><p>Aucune charge pour '+finY+'</p></div>';return;}
-  $('f-charges').innerHTML=ci.map(function(e){
-    var id=e[0],c=e[1];
-    return '<div class="fin-row">'+
-      '<div style="display:flex;align-items:center;gap:10px;">'+
-        '<div style="font-size:1.3rem;">'+(ico[c.cat]||'📋')+'</div>'+
-        '<div><div style="font-weight:600;font-size:.88rem;">'+c.label+'</div>'+
-        '<div style="font-size:.72rem;color:var(--text3);">'+fmtD(c.date)+'</div></div>'+
-      '</div>'+
-      '<div style="display:flex;align-items:center;gap:8px;">'+
-        '<div style="font-weight:700;color:var(--gold);">-'+eur(c.amount)+'</div>'+
-        '<button onclick="delCharge(\''+id+'\')" style="background:var(--red-light);color:var(--red);border-radius:8px;padding:4px 8px;font-size:.72rem;font-weight:600;border:none;cursor:pointer;">✕</button>'+
-      '</div></div>';
-  }).join('');
-}
-
-function renderAll(){renderCal();renderResa();renderFin();}
-
-// ── POSTES DE FRAIS ──────────────────────────────────────────────────────────
-function addCat(){
-  var name=$('cat-name').value.trim();
-  var icon=$('cat-icon').value.trim()||'📋';
-  if(!name){toast('⚠️ Entrez un nom de poste');return;}
-  var id=uid();
-  customCats[id]={name:name,icon:icon};
-  if(isDemo){renderCats();}
-  else if(db){fbUpdate(fbRef(db,'categories/'+id),{name:name,icon:icon});}
-  $('cat-name').value='';$('cat-icon').value='';
-  toast('✅ Poste ajouté !');
-  renderCats();
-}
-
-function delCat(id){
-  if(!confirm('Supprimer ce poste ?'))return;
-  delete customCats[id];
-  if(!isDemo&&db){fbRemove(fbRef(db,'categories/'+id));}
-  renderCats();
-  toast('🗑️ Poste supprimé');
-}
-
-function renderCats(){
-  var el=$('cats-list');if(!el)return;
-  var items=Object.entries(customCats);
-  if(!items.length){
-    el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><p>Aucun poste enregistré</p></div>';
-    return;
-  }
-  el.innerHTML=items.map(function(e){
-    var id=e[0],c=e[1];
-    return '<div class="fin-row">'+
-      '<div style="display:flex;align-items:center;gap:10px;">'+
-        '<div style="font-size:1.4rem;">'+c.icon+'</div>'+
-        '<div style="font-weight:600;">'+c.name+'</div>'+
-      '</div>'+
-      '<button data-cid="'+id+'" onclick="delCatClick(this)" style="background:var(--red-light);color:var(--red);border-radius:8px;padding:4px 10px;font-size:.78rem;font-weight:600;border:none;cursor:pointer;">✕</button>'+
-    '</div>';
-  }).join('');
-}
-
-function getCatOptions(){
-  // Catégories de base + personnalisées
-  var base=[
-    {v:'menage',l:'🧹 Ménage'},
-    {v:'assurance',l:'🛡️ Assurance'},
-    {v:'taxes',l:'🏛️ Taxes & impôts'},
-    {v:'reparation',l:'🔧 Réparation'},
-    {v:'autre',l:'📋 Autre'}
-  ];
-  var custom=Object.entries(customCats).map(function(e){
-    return {v:'cat_'+e[0],l:e[1].icon+' '+e[1].name};
-  });
-  return base.concat(custom).map(function(o){
-    return '<option value="'+o.v+'">'+o.l+'</option>';
-  }).join('');
-}
-
-// ── MODAL ─────────────────────────────────────────────────────────────────────
-function openModal(html){$('modal-body').innerHTML=html;$('overlay').classList.add('open');}
-function closeModal(){$('overlay').classList.remove('open');}
-function overlayClick(e){if(e.target===$('overlay'))closeModal();}
-
-// ── RÉSERVATION FORM ──────────────────────────────────────────────────────────
-function openAddResa(pre){
-  var d=pre||new Date().toISOString().slice(0,10);
-  openModal(
-    '<div class="modal-title">🛏️ Nouvelle réservation</div>'+
-    '<div class="field"><label>Nom du locataire</label><input id="mn" placeholder="Prénom Nom"/></div>'+
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'+
-      '<div class="field"><label>Arrivée</label><input id="ms" type="date" value="'+d+'" onchange="syncEnd(this.value)"/></div>'+
-      '<div class="field"><label>Départ</label><input id="me" type="date" value="'+d+'" min="'+d+'"/></div>'+
-    '</div>'+
-    '<div class="field"><label>Montant (€)</label><input id="ma" type="number" placeholder="0" min="0"/></div>'+
-    '<div class="field"><label>Statut</label><select id="mst"><option value="booked">✅ Confirmé</option><option value="option">⏳ Option</option></select></div>'+
-    '<div class="field"><label>Notes</label><textarea id="mn2" placeholder="Heure d\'arrivée..."></textarea></div>'+
-    '<button class="btn btn-primary btn-full" onclick="saveResa()">💾 Enregistrer</button>'+
-    '<button class="btn btn-secondary btn-full" style="margin-top:8px;" onclick="closeModal()">Annuler</button>'
-  );
-}
-
-function syncEnd(v){var e=$('me');if(e&&(!e.value||e.value<=v)){e.value=v;e.min=v;}}
-
-function saveResa(){
-  var name=$('mn').value.trim(), start=$('ms').value, end=$('me').value;
-  var amt=$('ma').value, status=$('mst').value, notes=$('mn2').value.trim();
-  if(!name||!start||!end){toast('⚠️ Remplissez le nom et les dates');return;}
-  if(end<=start){toast('⚠️ Le départ doit être après l\'arrivée');return;}
-  var id=uid();
-  var data={name:name,start:start,end:end,amount:Number(amt)||0,status:status,notes:notes};
-  if(isDemo){reservations[id]=data;renderAll();}
-  else if(db){fbUpdate(fbRef(db,'reservations/'+id),data);}
-  closeModal();
-  toast('✅ Réservation enregistrée !');
-}
-
-function viewResa(id){
-  var r=reservations[id];if(!r)return;
-  openModal(
-    '<div class="modal-title">🛏️ '+(r.name||'Réservation')+'</div>'+
-    '<div class="card" style="margin-bottom:14px;">'+
-      '<div style="display:flex;justify-content:space-between;margin-bottom:10px;">'+
-        '<div><div style="font-size:.72rem;color:var(--text3);">Arrivée</div><div style="font-weight:600;">'+fmtD(r.start)+'</div></div>'+
-        '<div style="text-align:right;"><div style="font-size:.72rem;color:var(--text3);">Départ</div><div style="font-weight:600;">'+fmtD(r.end)+'</div></div>'+
-      '</div>'+
-      '<div style="display:flex;justify-content:space-between;">'+
-        '<div><div style="font-size:.72rem;color:var(--text3);">Durée</div><div style="font-weight:600;">'+nuits(r.start,r.end)+' nuit(s)</div></div>'+
-        '<div style="text-align:right;"><div style="font-size:.72rem;color:var(--text3);">Montant</div><div style="font-weight:700;color:var(--orange);font-size:1.1rem;">'+eur(r.amount)+'</div></div>'+
-      '</div>'+
-      (r.notes?'<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:.82rem;color:var(--text2);">📝 '+r.notes+'</div>':'')+
-    '</div>'+
-    '<div style="margin-bottom:14px;display:flex;align-items:center;gap:10px;">'+
-      '<span class="badge '+(r.status==='option'?'badge-gold':'badge-green')+'" style="font-size:.82rem;padding:6px 14px;">'+(r.status==='option'?'⏳ Option':'✅ Confirmé')+'</span>'+
-      (r.status==='option'?'<button class="btn btn-primary" style="padding:7px 14px;font-size:.8rem;" onclick="confirmResa(\''+id+'\')">Confirmer</button>':'')+
-    '</div>'+
-    '<button class="btn btn-danger btn-full" onclick="delResa(\''+id+'\')">🗑️ Supprimer</button>'+
-    '<button class="btn btn-secondary btn-full" style="margin-top:8px;" onclick="closeModal()">Fermer</button>'
-  );
-}
-
-function confirmResa(id){
-  if(isDemo&&reservations[id]){reservations[id].status='booked';renderAll();}
-  else if(db){fbUpdate(fbRef(db,'reservations/'+id),{status:'booked'});}
-  closeModal();
-  toast('✅ Réservation confirmée !');
-}
-
-function delResa(id){
-  if(!confirm('Supprimer cette réservation ?'))return;
-  if(isDemo){delete reservations[id];renderAll();}
-  else if(db){fbRemove(fbRef(db,'reservations/'+id));}
-  closeModal();
-  toast('🗑️ Supprimée');
-}
-
-// ── CHARGES ───────────────────────────────────────────────────────────────────
-function openAddCharge(){
-  var today=new Date().toISOString().slice(0,10);
-  openModal(
-    '<div class="modal-title">💶 Nouvelle charge</div>'+
-    '<div class="field"><label>Description</label><input id="cl" placeholder="Ménage, assurance..."/></div>'+
-    '<div class="field"><label>Montant (€)</label><input id="ca" type="number" placeholder="0" min="0"/></div>'+
-    '<div class="field"><label>Date</label><input id="cd" type="date" value="'+today+'"/></div>'+
-    '<div class="field"><label>Catégorie</label><select id="cc">'+getCatOptions()+'</select></div>'+
-    '<button class="btn btn-primary btn-full" onclick="saveCharge()">💾 Enregistrer</button>'+
-    '<button class="btn btn-secondary btn-full" style="margin-top:8px;" onclick="closeModal()">Annuler</button>'
-  );
-}
-
-function saveCharge(){
-  var label=$('cl').value.trim(), amt=$('ca').value, date=$('cd').value, cat=$('cc').value;
-  if(!label||!amt||!date){toast('⚠️ Remplissez tous les champs');return;}
-  var id=uid();
-  var data={label:label,amount:Number(amt),date:date,cat:cat};
-  if(isDemo){charges[id]=data;renderAll();}
-  else if(db){fbUpdate(fbRef(db,'charges/'+id),data);}
-  closeModal();
-  toast('✅ Charge enregistrée !');
-}
-
-function delCharge(id){
-  if(!confirm('Supprimer ?'))return;
-  if(isDemo){delete charges[id];renderFin();}
-  else if(db){fbRemove(fbRef(db,'charges/'+id));}
-  toast('🗑️ Supprimée');
-}
-</script>
-</body>
-</html>
+function eur(n){return new Intl.NumberFormat('fr-BE',{style:'currency',currency:'EUR',maximumFractionDigi
